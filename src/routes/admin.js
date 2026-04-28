@@ -8,29 +8,26 @@ const QRCode   = require('qrcode');
 const { PrismaClient } = require('@prisma/client');
 const { requireAuth }  = require('../middleware/requireAuth');
 const { convertPdfToImages } = require('../services/pdfConverter');
+const { deleteFolder, R2_ENABLED } = require('../services/storage');
 
 const router  = express.Router();
 const prisma  = new PrismaClient();
 const nanoid  = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789', 6);
 
-// Multer — store uploaded PDFs temporarily
 const upload = multer({
   dest: './tmp/',
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'application/pdf') cb(null, true);
     else cb(new Error('Only PDF files are allowed.'));
   },
 });
 
-// All admin routes require login
 router.use(requireAuth);
 
-// ─── Dashboard ───────────────────────────────────────────────────────────────
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
-  const flipbooks = await prisma.flipbook.findMany({
-    orderBy: { createdAt: 'desc' },
-  });
+  const flipbooks = await prisma.flipbook.findMany({ orderBy: { createdAt: 'desc' } });
   res.render('admin/dashboard', { user: req.user, flipbooks });
 });
 
@@ -49,7 +46,7 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
   const slug  = nanoid();
 
   try {
-    const { pageCount } = await convertPdfToImages(req.file.path, slug);
+    const { pageCount, pages } = await convertPdfToImages(req.file.path, slug);
 
     await prisma.flipbook.create({
       data: {
@@ -58,12 +55,11 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
         pageCount,
         createdBy: req.user.email,
         pagesDir:  slug,
+        pageUrls:  R2_ENABLED ? pages.join(',') : '',
       },
     });
 
-    // Clean up tmp file
     fs.unlink(req.file.path, () => {});
-
     res.redirect(`/admin/flipbook/${slug}`);
   } catch (err) {
     console.error('Conversion error:', err);
@@ -75,7 +71,7 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
   }
 });
 
-// ─── Single flipbook detail + QR ──────────────────────────────────────────────
+// ─── Single flipbook detail ───────────────────────────────────────────────────
 router.get('/flipbook/:slug', async (req, res) => {
   const flipbook = await prisma.flipbook.findUnique({ where: { slug: req.params.slug } });
   if (!flipbook) return res.status(404).render('404');
@@ -83,7 +79,13 @@ router.get('/flipbook/:slug', async (req, res) => {
   const publicUrl = `${process.env.APP_URL}/v/${flipbook.slug}`;
   const qrDataUrl = await QRCode.toDataURL(publicUrl, { width: 200, margin: 2 });
 
-  res.render('admin/flipbook', { user: req.user, flipbook, publicUrl, qrDataUrl, queryString: req.url.split('?')[1] || '' });
+  res.render('admin/flipbook', {
+    user: req.user,
+    flipbook,
+    publicUrl,
+    qrDataUrl,
+    queryString: req.url.split('?')[1] || '',
+  });
 });
 
 // ─── Toggle active/inactive ───────────────────────────────────────────────────
@@ -99,7 +101,7 @@ router.post('/flipbook/:slug/toggle', async (req, res) => {
   res.redirect(`/admin/flipbook/${req.params.slug}`);
 });
 
-// ─── Replace PDF (keeps same slug/URL/QR code) ────────────────────────────────
+// ─── Replace PDF ──────────────────────────────────────────────────────────────
 router.post('/flipbook/:slug/replace', upload.single('pdf'), async (req, res) => {
   const flipbook = await prisma.flipbook.findUnique({ where: { slug: req.params.slug } });
   if (!flipbook) return res.status(404).end();
@@ -109,17 +111,21 @@ router.post('/flipbook/:slug/replace', upload.single('pdf'), async (req, res) =>
   }
 
   try {
-    // Delete old page images
-    const oldDir = path.join(process.env.STORAGE_PATH || './public/uploads', flipbook.pagesDir);
-    if (fs.existsSync(oldDir)) fs.rmSync(oldDir, { recursive: true });
+    // Delete old files
+    if (R2_ENABLED) {
+      await deleteFolder(`${flipbook.pagesDir}/`);
+    } else {
+      const oldDir = path.join(process.env.STORAGE_PATH || './public/uploads', flipbook.pagesDir);
+      if (fs.existsSync(oldDir)) fs.rmSync(oldDir, { recursive: true });
+    }
 
-    // Convert new PDF into the same pagesDir so the slug/URL never changes
-    const { pageCount } = await convertPdfToImages(req.file.path, flipbook.pagesDir);
+    const { pageCount, pages } = await convertPdfToImages(req.file.path, flipbook.pagesDir);
 
     await prisma.flipbook.update({
       where: { slug: req.params.slug },
       data: {
         pageCount,
+        pageUrls:  R2_ENABLED ? pages.join(',') : '',
         updatedAt: new Date(),
       },
     });
@@ -138,12 +144,14 @@ router.post('/flipbook/:slug/delete', async (req, res) => {
   const flipbook = await prisma.flipbook.findUnique({ where: { slug: req.params.slug } });
   if (!flipbook) return res.status(404).end();
 
-  // Delete page images from disk
-  const dir = path.join(process.env.STORAGE_PATH || './public/uploads', flipbook.pagesDir);
-  if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
+  if (R2_ENABLED) {
+    await deleteFolder(`${flipbook.pagesDir}/`);
+  } else {
+    const dir = path.join(process.env.STORAGE_PATH || './public/uploads', flipbook.pagesDir);
+    if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true });
+  }
 
   await prisma.flipbook.delete({ where: { slug: req.params.slug } });
-
   res.redirect('/admin');
 });
 
