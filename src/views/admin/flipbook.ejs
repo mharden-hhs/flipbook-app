@@ -98,7 +98,8 @@
         </div>
 
         <div class="thumb-preview">
-          <img src="/uploads/<%= flipbook.pagesDir %>/page.1.png" alt="Cover page">
+          <% const thumbUrl = flipbook.pageUrls ? flipbook.pageUrls.split(',')[0] : '/uploads/' + flipbook.pagesDir + '/page.1.png'; %>
+          <img src="<%= thumbUrl %>" alt="Cover page">
         </div>
       </div>
     </div>

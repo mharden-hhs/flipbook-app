@@ -39,7 +39,8 @@
         <% flipbooks.forEach(fb => { %>
           <a href="/admin/flipbook/<%= fb.slug %>" class="flipbook-card">
             <div class="card-thumb">
-              <img src="/uploads/<%= fb.pagesDir %>/page.1.png" alt="" onerror="this.style.display='none'">
+              <% const thumb = fb.pageUrls ? fb.pageUrls.split(',')[0] : '/uploads/' + fb.pagesDir + '/page.1.png'; %>
+              <img src="<%= thumb %>" alt="" onerror="this.style.display='none'">
             </div>
             <div class="card-info">
               <div class="card-title"><%= fb.title %></div>
