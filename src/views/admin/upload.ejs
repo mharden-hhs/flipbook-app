@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload PDF — FlipDoc</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/admin" class="nav-brand">FlipDoc</a>
+    <div class="nav-right">
+      <a href="/admin/upload" class="btn-upload">+ New flipbook</a>
+      <div class="nav-user">
+        <% if (user.avatar) { %>
+          <img src="<%= user.avatar %>" alt="" class="avatar">
+        <% } %>
+        <span><%= user.name %></span>
+        <a href="/auth/logout" class="logout">Sign out</a>
+      </div>
+    </div>
+  </nav>
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Upload a PDF</h1>
+    </div>
+
+    <% if (error) { %>
+      <div class="alert alert-error"><%= error %></div>
+    <% } %>
+
+    <form class="upload-form" action="/admin/upload" method="POST" enctype="multipart/form-data" id="upload-form">
+      <div class="form-group">
+        <label for="title">Title</label>
+        <input type="text" id="title" name="title" placeholder="Leave blank to use filename" class="input">
+      </div>
+
+      <div class="form-group">
+        <label>PDF file</label>
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" name="pdf" id="pdf-input" accept=".pdf" required class="file-input">
+          <div class="drop-content" id="drop-content">
+            <div class="drop-icon">⬆</div>
+            <p>Drag & drop your PDF here, or <span class="link">browse</span></p>
+            <p class="drop-hint">Max 50 MB</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="processing-msg" id="processing-msg" style="display:none">
+        <div class="spinner"></div>
+        Converting pages… this may take a moment for large PDFs.
+      </div>
+
+      <button type="submit" class="btn-primary" id="submit-btn">Convert to flipbook</button>
+    </form>
+  </main>
+  <script>
+    const dropZone  = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('pdf-input');
+    const dropContent = document.getElementById('drop-content');
+    const form      = document.getElementById('upload-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const procMsg   = document.getElementById('processing-msg');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) {
+        dropContent.querySelector('p').textContent = fileInput.files[0].name;
+      }
+    });
+
+    ['dragover','dragenter'].forEach(e => {
+      dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('dragover'); });
+    });
+    ['dragleave','drop'].forEach(e => {
+      dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('dragover'); });
+    });
+    dropZone.addEventListener('drop', ev => {
+      const file = ev.dataTransfer.files[0];
+      if (file && file.type === 'application/pdf') {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        dropContent.querySelector('p').textContent = file.name;
+      }
+    });
+
+    form.addEventListener('submit', () => {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Converting…';
+      procMsg.style.display = 'flex';
+    });
+  </script>
+</body>
+</html>

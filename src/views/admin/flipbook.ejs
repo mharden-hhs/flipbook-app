@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= flipbook.title %> — FlipDoc</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/admin" class="nav-brand">FlipDoc</a>
+    <div class="nav-right">
+      <a href="/admin/upload" class="btn-upload">+ New flipbook</a>
+      <div class="nav-user">
+        <% if (user.avatar) { %>
+          <img src="<%= user.avatar %>" alt="" class="avatar">
+        <% } %>
+        <span><%= user.name %></span>
+        <a href="/auth/logout" class="logout">Sign out</a>
+      </div>
+    </div>
+  </nav>
+  <main class="main-content">
+    <a href="/admin" class="back-link">All flipbooks</a>
+
+    <div class="detail-grid">
+      <div class="detail-main">
+        <h1><%= flipbook.title %></h1>
+        <div class="meta-row">
+          <%= flipbook.pageCount %> pages &middot;
+          <%= flipbook.viewCount %> views &middot;
+          Created <%= new Date(flipbook.createdAt).toLocaleDateString() %>
+        </div>
+
+        <div class="detail-actions">
+          <a href="<%= publicUrl %>" target="_blank" class="btn-primary">Open flipbook</a>
+
+          <form action="/admin/flipbook/<%= flipbook.slug %>/toggle" method="POST" style="display:inline">
+            <button type="submit" class="btn-secondary">
+              <%= flipbook.isActive ? 'Hide flipbook' : 'Make live' %>
+            </button>
+          </form>
+
+          <form action="/admin/flipbook/<%= flipbook.slug %>/delete" method="POST"
+            onsubmit="return confirm('Delete this flipbook permanently?')" style="display:inline">
+            <button type="submit" class="btn-danger">Delete</button>
+          </form>
+        </div>
+
+        <% const q = new URLSearchParams(queryString); %>
+        <% if (q.get('replaced')) { %>
+          <div class="alert alert-success">PDF replaced — the URL and QR code are unchanged.</div>
+        <% } else if (q.get('error') === 'conversion') { %>
+          <div class="alert alert-error">Replacement failed. Make sure the file is a valid PDF.</div>
+        <% } else if (q.get('error') === 'nofile') { %>
+          <div class="alert alert-error">Please select a PDF file to replace with.</div>
+        <% } %>
+
+        <div class="replace-section">
+          <div class="replace-label">Replace PDF</div>
+          <p class="replace-hint">Swap in a new PDF — the public URL and QR code stay exactly the same.</p>
+          <form action="/admin/flipbook/<%= flipbook.slug %>/replace" method="POST"
+            enctype="multipart/form-data" id="replace-form">
+            <div class="replace-row">
+              <label class="replace-file-btn" for="replace-input">
+                <span id="replace-filename">Choose PDF</span>
+                <input type="file" id="replace-input" name="pdf" accept=".pdf" required
+                  onchange="document.getElementById('replace-filename').textContent = this.files[0]?.name || 'Choose PDF'">
+              </label>
+              <button type="submit" class="btn-secondary" id="replace-submit"
+                onclick="this.textContent='Replacing...'; this.disabled=true;">Replace</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="status-row">
+          Status: <span class="status-badge <%= flipbook.isActive ? 'active' : 'inactive' %>">
+            <%= flipbook.isActive ? 'Live — anyone with the link can view' : 'Hidden' %>
+          </span>
+        </div>
+
+        <div class="url-box">
+          <span class="url-label">Share URL</span>
+          <code id="share-url"><%= publicUrl %></code>
+          <button onclick="navigator.clipboard.writeText('<%= publicUrl %>'); this.textContent='Copied!'; setTimeout(()=>this.textContent='Copy',1500)" class="copy-btn">Copy</button>
+        </div>
+      </div>
+
+      <div class="detail-side">
+        <div class="qr-card">
+          <p class="qr-label">Scan to open</p>
+          <img src="<%= qrDataUrl %>" alt="QR code" class="qr-img">
+          <a href="<%= qrDataUrl %>" download="flipdoc-<%= flipbook.slug %>-qr.png" class="btn-secondary qr-download">
+            Download QR code
+          </a>
+        </div>
+
+        <div class="thumb-preview">
+          <img src="/uploads/<%= flipbook.pagesDir %>/page.1.png" alt="Cover page">
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

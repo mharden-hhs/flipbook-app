@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — FlipDoc</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <nav class="topnav">
+    <a href="/admin" class="nav-brand">FlipDoc</a>
+    <div class="nav-right">
+      <a href="/admin/upload" class="btn-upload">+ New flipbook</a>
+      <div class="nav-user">
+        <% if (user.avatar) { %>
+          <img src="<%= user.avatar %>" alt="" class="avatar">
+        <% } %>
+        <span><%= user.name %></span>
+        <a href="/auth/logout" class="logout">Sign out</a>
+      </div>
+    </div>
+  </nav>
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Your flipbooks</h1>
+      <p class="page-sub"><%= flipbooks.length %> total</p>
+    </div>
+
+    <% if (flipbooks.length === 0) { %>
+      <div class="empty-state">
+        <div class="empty-icon">📄</div>
+        <p>No flipbooks yet.</p>
+        <a href="/admin/upload" class="btn-primary">Upload your first PDF</a>
+      </div>
+    <% } else { %>
+      <div class="flipbook-grid">
+        <% flipbooks.forEach(fb => { %>
+          <a href="/admin/flipbook/<%= fb.slug %>" class="flipbook-card">
+            <div class="card-thumb">
+              <img src="/uploads/<%= fb.pagesDir %>/page.1.png" alt="" onerror="this.style.display='none'">
+            </div>
+            <div class="card-info">
+              <div class="card-title"><%= fb.title %></div>
+              <div class="card-meta">
+                <%= fb.pageCount %> pages &middot;
+                <%= fb.viewCount %> views &middot;
+                <span class="status-badge <%= fb.isActive ? 'active' : 'inactive' %>">
+                  <%= fb.isActive ? 'Live' : 'Hidden' %>
+                </span>
+              </div>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </main>
+</body>
+</html>

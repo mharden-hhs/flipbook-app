@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= flipbook.title %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/viewer.css">
+</head>
+<body>
+  <div class="viewer-header">
+    <div class="viewer-title"><%= flipbook.title %></div>
+    <div class="viewer-controls">
+      <button class="ctrl-btn" id="btn-prev" title="Previous page">&#8249;</button>
+      <span class="page-counter" id="page-counter">1 / <%= flipbook.pageCount %></span>
+      <button class="ctrl-btn" id="btn-next" title="Next page">&#8250;</button>
+    </div>
+  </div>
+
+  <div class="flipbook-container">
+    <div id="flipbook">
+      <% pages.forEach(src => { %>
+        <div class="page">
+          <img src="<%= src %>" alt="" loading="lazy">
+        </div>
+      <% }) %>
+    </div>
+  </div>
+
+  <div class="viewer-footer">
+    Swipe or use arrows to turn pages
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+  <script>
+    const pageFlip = new St.PageFlip(document.getElementById('flipbook'), {
+      width:          550,
+      height:         733,
+      size:           'stretch',
+      minWidth:       280,
+      maxWidth:       1000,
+      minHeight:      400,
+      maxHeight:      1350,
+      drawShadow:     true,
+      flippingTime:   700,
+      usePortrait:    true,
+      startZIndex:    0,
+      autoSize:       true,
+      maxShadowOpacity: 0.5,
+      showCover:      true,
+      mobileScrollSupport: true,
+    });
+
+    pageFlip.loadFromHTML(document.querySelectorAll('.page'));
+
+    const counter = document.getElementById('page-counter');
+    const total   = <%= flipbook.pageCount %>;
+
+    pageFlip.on('flip', e => {
+      counter.textContent = `${e.data + 1} / ${total}`;
+    });
+
+    document.getElementById('btn-prev').addEventListener('click', () => pageFlip.flipPrev());
+    document.getElementById('btn-next').addEventListener('click', () => pageFlip.flipNext());
+
+    // Keyboard navigation
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft')  pageFlip.flipPrev();
+      if (e.key === 'ArrowRight') pageFlip.flipNext();
+    });
+  </script>
+</body>
+</html>
