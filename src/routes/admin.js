@@ -36,7 +36,7 @@ router.get('/upload', (req, res) => {
   res.render('admin/upload', { user: req.user, error: null });
 });
 
-// ─── Process upload ───────────────────────────────────────────────────────────
+// ─── Process upload (async) ───────────────────────────────────────────────────
 router.post('/upload', upload.single('pdf'), async (req, res) => {
   if (!req.file) {
     return res.render('admin/upload', { user: req.user, error: 'Please select a PDF file.' });
@@ -45,30 +45,58 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
   const title = req.body.title?.trim() || path.parse(req.file.originalname).name;
   const slug  = nanoid();
 
-  try {
-    const { pageCount, pages } = await convertPdfToImages(req.file.path, slug);
+  // Create the record immediately with status 'processing'
+  await prisma.flipbook.create({
+    data: {
+      slug,
+      title,
+      pageCount: 0,
+      createdBy: req.user.email,
+      pagesDir:  slug,
+      status:    'processing',
+    },
+  });
 
-    await prisma.flipbook.create({
-      data: {
-        slug,
-        title,
-        pageCount,
-        createdBy: req.user.email,
-        pagesDir:  slug,
-        pageUrls:  R2_ENABLED ? pages.join(',') : '',
-      },
-    });
+  // Redirect immediately — don't wait for conversion
+  res.redirect(`/admin/flipbook/${slug}`);
 
-    fs.unlink(req.file.path, () => {});
-    res.redirect(`/admin/flipbook/${slug}`);
-  } catch (err) {
-    console.error('Conversion error:', err);
-    fs.unlink(req.file.path, () => {});
-    res.render('admin/upload', {
-      user: req.user,
-      error: 'PDF conversion failed. Make sure the file is a valid PDF.',
-    });
-  }
+  // Convert in the background after response is sent
+  setImmediate(async () => {
+    try {
+      const { pageCount, pages } = await convertPdfToImages(req.file.path, slug);
+
+      await prisma.flipbook.update({
+        where: { slug },
+        data: {
+          pageCount,
+          pageUrls: R2_ENABLED ? pages.join(',') : '',
+          status:   'ready',
+        },
+      });
+
+      fs.unlink(req.file.path, () => {});
+    } catch (err) {
+      console.error('Background conversion error:', err);
+      await prisma.flipbook.update({
+        where: { slug },
+        data: {
+          status:   'error',
+          errorMsg: err.message || 'Conversion failed',
+        },
+      }).catch(() => {});
+      fs.unlink(req.file.path, () => {});
+    }
+  });
+});
+
+// ─── Processing status API (polled by browser) ────────────────────────────────
+router.get('/flipbook/:slug/status', async (req, res) => {
+  const flipbook = await prisma.flipbook.findUnique({
+    where: { slug: req.params.slug },
+    select: { status: true, errorMsg: true },
+  });
+  if (!flipbook) return res.status(404).json({ error: 'Not found' });
+  res.json(flipbook);
 });
 
 // ─── Single flipbook detail ───────────────────────────────────────────────────
@@ -77,7 +105,9 @@ router.get('/flipbook/:slug', async (req, res) => {
   if (!flipbook) return res.status(404).render('404');
 
   const publicUrl = `${process.env.APP_URL}/v/${flipbook.slug}`;
-  const qrDataUrl = await QRCode.toDataURL(publicUrl, { width: 200, margin: 2 });
+  const qrDataUrl = flipbook.status === 'ready'
+    ? await QRCode.toDataURL(publicUrl, { width: 200, margin: 2 })
+    : null;
 
   res.render('admin/flipbook', {
     user: req.user,
@@ -101,7 +131,7 @@ router.post('/flipbook/:slug/toggle', async (req, res) => {
   res.redirect(`/admin/flipbook/${req.params.slug}`);
 });
 
-// ─── Replace PDF ──────────────────────────────────────────────────────────────
+// ─── Replace PDF (async) ──────────────────────────────────────────────────────
 router.post('/flipbook/:slug/replace', upload.single('pdf'), async (req, res) => {
   const flipbook = await prisma.flipbook.findUnique({ where: { slug: req.params.slug } });
   if (!flipbook) return res.status(404).end();
@@ -110,33 +140,46 @@ router.post('/flipbook/:slug/replace', upload.single('pdf'), async (req, res) =>
     return res.redirect(`/admin/flipbook/${req.params.slug}?error=nofile`);
   }
 
-  try {
-    // Delete old files
-    if (R2_ENABLED) {
-      await deleteFolder(`${flipbook.pagesDir}/`);
-    } else {
-      const oldDir = path.join(process.env.STORAGE_PATH || './public/uploads', flipbook.pagesDir);
-      if (fs.existsSync(oldDir)) fs.rmSync(oldDir, { recursive: true });
+  // Set status to processing immediately
+  await prisma.flipbook.update({
+    where: { slug: req.params.slug },
+    data: { status: 'processing' },
+  });
+
+  res.redirect(`/admin/flipbook/${req.params.slug}`);
+
+  // Replace in background
+  setImmediate(async () => {
+    try {
+      if (R2_ENABLED) {
+        await deleteFolder(`${flipbook.pagesDir}/`);
+      } else {
+        const oldDir = path.join(process.env.STORAGE_PATH || './public/uploads', flipbook.pagesDir);
+        if (fs.existsSync(oldDir)) fs.rmSync(oldDir, { recursive: true });
+      }
+
+      const { pageCount, pages } = await convertPdfToImages(req.file.path, flipbook.pagesDir);
+
+      await prisma.flipbook.update({
+        where: { slug: req.params.slug },
+        data: {
+          pageCount,
+          pageUrls:  R2_ENABLED ? pages.join(',') : '',
+          status:    'ready',
+          updatedAt: new Date(),
+        },
+      });
+
+      fs.unlink(req.file.path, () => {});
+    } catch (err) {
+      console.error('Background replace error:', err);
+      await prisma.flipbook.update({
+        where: { slug: req.params.slug },
+        data: { status: 'error', errorMsg: err.message || 'Replacement failed' },
+      }).catch(() => {});
+      fs.unlink(req.file.path, () => {});
     }
-
-    const { pageCount, pages } = await convertPdfToImages(req.file.path, flipbook.pagesDir);
-
-    await prisma.flipbook.update({
-      where: { slug: req.params.slug },
-      data: {
-        pageCount,
-        pageUrls:  R2_ENABLED ? pages.join(',') : '',
-        updatedAt: new Date(),
-      },
-    });
-
-    fs.unlink(req.file.path, () => {});
-    res.redirect(`/admin/flipbook/${req.params.slug}?replaced=1`);
-  } catch (err) {
-    console.error('Replace error:', err);
-    fs.unlink(req.file.path, () => {});
-    res.redirect(`/admin/flipbook/${req.params.slug}?error=conversion`);
-  }
+  });
 });
 
 // ─── Delete ───────────────────────────────────────────────────────────────────

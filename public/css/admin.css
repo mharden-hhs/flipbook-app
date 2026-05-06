@@ -475,3 +475,44 @@ html, body {
   cursor: pointer;
 }
 .btn-google:hover { background: var(--paper2); }
+
+/* ── Processing state ─────────────────────────── */
+.processing-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.processing-icon {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.spinner-lg {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--border);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.processing-state h1 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+  margin-bottom: 1rem;
+}
+
+.processing-msg {
+  font-size: 15px;
+  color: var(--ink2);
+  margin-bottom: 0.75rem;
+}
+
+.processing-sub {
+  font-size: 13px;
+  color: var(--ink3);
+}
