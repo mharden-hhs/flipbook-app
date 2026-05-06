@@ -26,30 +26,34 @@
     <a href="/admin" class="back-link">All flipbooks</a>
 
     <% if (flipbook.status === 'processing') { %>
-      <div class="processing-state">
-        <div class="processing-icon">
-          <div class="spinner-lg"></div>
-        </div>
-        <h1><%= flipbook.title %></h1>
-        <p class="processing-msg">Converting your PDF — this may take a minute for large files.</p>
-        <p class="processing-sub">You can leave this page and come back. The flipbook will be ready when conversion completes.</p>
-      </div>
-      <script>
-        const poll = async () => {
-          const res  = await fetch('/admin/flipbook/<%= flipbook.slug %>/status');
-          const data = await res.json();
-          if (data.status === 'ready') {
-            window.location.reload();
-          } else if (data.status === 'error') {
-            document.querySelector('.processing-msg').textContent = 'Conversion failed: ' + data.errorMsg;
-            document.querySelector('.processing-msg').style.color = '#b91c1c';
-            document.querySelector('.spinner-lg').style.display = 'none';
-          } else {
-            setTimeout(poll, 3000);
-          }
-        };
+  <div class="processing-state">
+    <div class="processing-icon">
+      <div class="spinner-lg"></div>
+    </div>
+    <h1><%= flipbook.title %></h1>
+    <p class="processing-msg">Converting your PDF — this may take a minute for large files.</p>
+    <p class="processing-sub">You can leave this page and come back. The flipbook will be ready when conversion completes.</p>
+    <form action="/admin/flipbook/<%= flipbook.slug %>/delete" method="POST"
+      onsubmit="return confirm('Delete this flipbook?')" style="margin-top: 2rem;">
+      <button type="submit" class="btn-danger">Delete</button>
+    </form>
+  </div>
+  <script>
+    const poll = async () => {
+      const res  = await fetch('/admin/flipbook/<%= flipbook.slug %>/status');
+      const data = await res.json();
+      if (data.status === 'ready') {
+        window.location.reload();
+      } else if (data.status === 'error') {
+        document.querySelector('.processing-msg').textContent = 'Conversion failed: ' + data.errorMsg;
+        document.querySelector('.processing-msg').style.color = '#b91c1c';
+        document.querySelector('.spinner-lg').style.display = 'none';
+      } else {
         setTimeout(poll, 3000);
-      </script>
+      }
+    };
+    setTimeout(poll, 3000);
+  </script>
 
     <% } else if (flipbook.status === 'error') { %>
       <div class="page-header">
