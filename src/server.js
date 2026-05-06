@@ -32,13 +32,20 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Session
+const pgSession = require('connect-pg-simple')(session);
+
 app.use(session({
+  store: new pgSession({
+    conString: process.env.DATABASE_URL,
+    tableName:  'Session',
+    createTableIfMissing: true,
+  }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    secure:   process.env.NODE_ENV === 'production',
+    maxAge:   7 * 24 * 60 * 60 * 1000 // 7 days
   }
 }));
 
