@@ -35,25 +35,25 @@
   <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
   <script>
     const pageFlip = new St.PageFlip(document.getElementById('flipbook'), {
-  width:            550,
-  height:           733,
-  size:             'stretch',
-  minWidth:         280,
-  maxWidth:         1000,
-  minHeight:        400,
-  maxHeight:        1350,
-  drawShadow:       true,
-  flippingTime:     500,
-  usePortrait:      true,
-  startZIndex:      0,
-  autoSize:         true,
-  maxShadowOpacity: 0.3,
-  showCover:        true,
-  mobileScrollSupport: true,
-  clickEventForward:   true,
-  swipeDistance:    30,
-  startPage:        0,
-});
+      width:            550,
+      height:           733,
+      size:             'stretch',
+      minWidth:         280,
+      maxWidth:         1000,
+      minHeight:        400,
+      maxHeight:        1350,
+      drawShadow:       true,
+      flippingTime:     500,
+      usePortrait:      true,
+      startZIndex:      0,
+      autoSize:         true,
+      maxShadowOpacity: 0.3,
+      showCover:        true,
+      mobileScrollSupport: true,
+      clickEventForward:   true,
+      swipeDistance:    30,
+      startPage:        0,
+    });
 
     pageFlip.loadFromHTML(document.querySelectorAll('.page'));
 
@@ -65,23 +65,16 @@
     });
 
     document.getElementById('btn-prev').addEventListener('click', () => {
-  pageFlip.flipPrev('top');
-});
+      pageFlip.flipPrev('top');
+    });
 
-document.getElementById('btn-next').addEventListener('click', () => {
-  pageFlip.flipNext('top');
-});
+    document.getElementById('btn-next').addEventListener('click', () => {
+      pageFlip.flipNext('top');
+    });
 
-// Keyboard navigation
-document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowLeft')  pageFlip.flipPrev('top');
-  if (e.key === 'ArrowRight') pageFlip.flipNext('top');
-});
-
-    // Keyboard navigation
     document.addEventListener('keydown', e => {
-      if (e.key === 'ArrowLeft')  pageFlip.flipPrev();
-      if (e.key === 'ArrowRight') pageFlip.flipNext();
+      if (e.key === 'ArrowLeft')  pageFlip.flipPrev('top');
+      if (e.key === 'ArrowRight') pageFlip.flipNext('top');
     });
   </script>
 </body>
